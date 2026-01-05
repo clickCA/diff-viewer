@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: diff-viewer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: diffviewer
+      POSTGRES_PASSWORD: diffviewer_dev_password
+      POSTGRES_DB: diffviewer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U diffviewer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - diff-viewer-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  diff-viewer-network:
+    driver: bridge

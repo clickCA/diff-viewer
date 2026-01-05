@@ -1,0 +1,31 @@
+{
+  "typescript": {
+    "indentWidth": 4
+  },
+  "json": {},
+  "prettier": {
+    "trailingComma": "all",
+    "singleQuote": true,
+    "proseWrap": "always"
+  },
+  "markdown": {},
+  "toml": {},
+  "dockerfile": {},
+  "malva": {},
+  "markup": {
+    "indentWidth": 4
+  },
+  "yaml": {},
+  "excludes": ["**/node_modules", "**/*-lock.json"],
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.95.13.wasm",
+    "https://plugins.dprint.dev/json-0.21.0.wasm",
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/toml-0.7.0.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.3.3.wasm",
+    "https://plugins.dprint.dev/g-plane/malva-v0.15.1.wasm",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.25.3.wasm",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.5.1.wasm",
+    "https://plugins.dprint.dev/prettier-0.62.0.json@80fefd1450bfd3f469590cc6a3f40f6ace26974f948b9602124f486036fbdfab"
+  ]
+}
