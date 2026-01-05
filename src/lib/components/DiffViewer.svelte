@@ -5,7 +5,6 @@
 	import { type Diff } from 'diff-match-patch';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
 	import { OptimizedDiffComputer, renderDiffToHtml, type DiffResult } from '$lib/utils/optimizedDiff';
 
 	let leftText = $state('');
@@ -24,18 +23,6 @@
 
 	onMount(() => {
 		if (browser) {
-			// Load from URL params on mount
-			const params = new URLSearchParams(window.location.search);
-			const left = params.get('left');
-			const right = params.get('right');
-
-			if (left) leftText = decodeURIComponent(left);
-			if (right) rightText = decodeURIComponent(right);
-
-			if (left || right) {
-				computeDiff();
-			}
-
 			// Add keyboard shortcuts for navigation
 			const handleKeyDown = (e: KeyboardEvent) => {
 				// Only handle if not typing in a textarea
@@ -128,29 +115,39 @@
 		rightFileInput?.click();
 	}
 
-	function generateShareLink() {
-		if (browser) {
-			const params = new URLSearchParams();
-			if (leftText) params.set('left', leftText);
-			if (rightText) params.set('right', rightText);
+	async function generateAndCopyShareLink() {
+		if (!browser || !diffResult) return;
 
-			shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-		}
-	}
+		try {
+			// Save diff to backend
+			const response = await fetch('/api/diff', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					textA: leftText,
+					textB: rightText,
+					ttlDays: 7,
+					isPrivate: false
+				})
+			});
 
-	async function copyShareLink() {
-		generateShareLink();
-		if (shareUrl && browser) {
-			try {
-				await navigator.clipboard.writeText(shareUrl);
-				copySuccess = true;
-				setTimeout(() => {
-					copySuccess = false;
-				}, 2000);
-			} catch (err) {
-				console.error('Failed to copy:', err);
-				alert('Failed to copy link. Please copy manually: ' + shareUrl);
+			if (!response.ok) {
+				throw new Error('Failed to create shareable link');
 			}
+
+			const data = await response.json();
+			shareUrl = `${window.location.origin}${data.url}`;
+
+			// Copy to clipboard
+			await navigator.clipboard.writeText(shareUrl);
+			copySuccess = true;
+			setTimeout(() => {
+				copySuccess = false;
+				shareUrl = '';
+			}, 3000);
+		} catch (err) {
+			console.error('Failed to create share link:', err);
+			alert('Failed to create shareable link. Please try again.');
 		}
 	}
 
@@ -161,9 +158,6 @@
 		shareUrl = '';
 		currentDiffIndex = 0;
 		showPerfMetrics = false;
-		if (browser) {
-			goto(window.location.pathname, { replaceState: true });
-		}
 	}
 
 	// Derived values for rendering
@@ -269,7 +263,7 @@
 			</Button>
 		</div>
 		<div class="flex gap-2">
-			<Button onclick={copyShareLink} variant="outline" disabled={isComputing}>
+			<Button onclick={generateAndCopyShareLink} variant="outline" disabled={isComputing || !diffResult}>
 				{#if copySuccess}
 					<Copy class="h-4 w-4 mr-2" />
 					Copied!
