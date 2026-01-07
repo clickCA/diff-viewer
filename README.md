@@ -1,27 +1,30 @@
 # Diff Viewer - Text Comparison Tool
 
-A high-performance diff viewer application with shareable links and persistent storage. Compare text with character-level precision using VS Code-inspired algorithms. Built with SvelteKit 2, Svelte 5, Fastify, and PostgreSQL.
+A high-performance diff viewer application with shareable links and persistent storage. Compare text with character-level precision using VS Code-inspired algorithms. Built with SvelteKit 2, Svelte 5, Drizzle ORM, and PostgreSQL.
 
 ## Architecture
 
 ```
-┌─────────────────┐
-│  SvelteKit UI   │  ← Performance-optimized diff viewer
-└────────┬────────┘
-         │ HTTP
-    ┌────▼─────┐
-    │ Fastify  │  ← REST API for diff storage
-    │   API    │
-    └────┬─────┘
-         │
-    ┌────▼─────┐
-    │ Drizzle  │  ← Type-safe ORM
-    │   ORM    │
-    └────┬─────┘
-         │
-    ┌────▼─────┐
-    │PostgreSQL│  ← Persistent diff storage
-    └──────────┘
+┌─────────────────────────────┐
+│      SvelteKit App          │
+│  ┌───────────────────────┐  │
+│  │   Frontend (Svelte)   │  │  ← Diff viewer UI
+│  └───────────┬───────────┘  │
+│              │               │
+│  ┌───────────▼───────────┐  │
+│  │   API Routes          │  │  ← REST endpoints
+│  │   /api/diff           │  │
+│  │   /api/stats          │  │
+│  └───────────┬───────────┘  │
+│              │               │
+│  ┌───────────▼───────────┐  │
+│  │   Drizzle ORM         │  │  ← Type-safe queries
+│  └───────────┬───────────┘  │
+└──────────────┼───────────────┘
+               │
+    ┌──────────▼──────────┐
+    │    PostgreSQL       │     ← Persistent storage
+    └─────────────────────┘
 ```
 
 ## Features
@@ -58,36 +61,53 @@ A high-performance diff viewer application with shareable links and persistent s
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit 2 + Svelte 5
+- **Framework**: SvelteKit 2 + Svelte 5 (full-stack)
+- **Database**: PostgreSQL 16
+- **ORM**: Drizzle ORM (type-safe queries)
 - **UI Components**: shadcn-svelte + Tailwind CSS v4
-- **Diff Engine**: diff-match-patch library
+- **Diff Engine**: Custom optimized diff-match-patch wrapper
 - **Icons**: Lucide Svelte
+- **Deployment**: Docker + Docker Compose
 
 ## Getting Started
 
-### 1. Install Dependencies
+### 1. Start PostgreSQL
+
+```bash
+docker-compose up -d
+```
+
+This starts PostgreSQL on `localhost:5432`
+
+### 2. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### 2. Development
+### 3. Setup Database
 
-Start the development server:
+Push the database schema using Drizzle:
+
+```bash
+pnpm db:push
+```
+
+### 4. Start Development Server
 
 ```bash
 pnpm dev
 ```
 
-Visit [http://localhost:5173](http://localhost:5173)
+Visit **http://localhost:5173**
 
-### 3. Build for Production
+### 5. Build for Production
 
 ```bash
 pnpm build
 ```
 
-### 4. Preview Production Build
+### 6. Preview Production Build
 
 ```bash
 pnpm preview
@@ -101,8 +121,9 @@ pnpm preview
    - 🔴 Red: Deleted text (appears in Original)
    - 🟢 Green: Inserted text (appears in Modified)
    - ⚪ Gray: Unchanged text
-4. **Share**: Click "Share Link" to copy a URL with your comparison that you can send to others
-5. **Clear**: Use "Clear All" to reset and start a new comparison
+4. **Navigate**: Use Previous/Next buttons or keyboard shortcuts (`↑`/`↓` or `p`/`n`) to jump between changes
+5. **Share**: Click "Share Link" to save your diff and get a shareable URL (e.g., `/diff/abc123def`)
+6. **Clear**: Use "Clear All" to reset and start a new comparison
 
 ## Performance Tips
 
@@ -117,21 +138,43 @@ pnpm preview
 src/
 ├── lib/
 │   ├── components/
-│   │   ├── ui/              # shadcn-svelte components (Button, Card)
-│   │   └── DiffViewer.svelte # Main diff viewer component
-│   └── utils.ts             # Utility functions
+│   │   ├── ui/                    # shadcn-svelte components (Button, Card)
+│   │   └── DiffViewer.svelte      # Main diff viewer component
+│   ├── server/                    # Server-only code (not exposed to client)
+│   │   └── db/
+│   │       ├── schema.ts          # Drizzle database schema
+│   │       ├── index.ts           # Database connection
+│   │       └── migrate.ts         # Migration runner
+│   └── utils/
+│       ├── optimizedDiff.ts       # Performance-optimized diff engine
+│       └── utils.ts               # General utilities
 ├── routes/
-│   ├── +layout.svelte       # Root layout with header
-│   ├── +page.svelte         # Home page
-│   └── Header.svelte        # Navigation header
-└── app.css                  # Global styles and Tailwind config
+│   ├── api/                       # API endpoints
+│   │   ├── diff/
+│   │   │   ├── +server.ts         # POST /api/diff (create)
+│   │   │   └── [id]/+server.ts    # GET /api/diff/[id] (retrieve)
+│   │   ├── stats/+server.ts       # GET /api/stats
+│   │   └── cleanup/+server.ts     # POST /api/cleanup
+│   ├── diff/[id]/                 # Shared diff viewer
+│   │   ├── +page.server.ts        # Load diff from DB
+│   │   └── +page.svelte           # Display diff UI
+│   ├── +layout.svelte             # Root layout
+│   └── +page.svelte               # Home page
+├── app.css                        # Global styles
+└── drizzle.config.ts              # Drizzle configuration
 ```
 
 ## Key Features Explained
 
 ### Share Links
 
-Share links encode both text panels in the URL parameters. When someone opens your shared link, both texts are automatically loaded and compared. This is perfect for:
+Share links save your diff to the database and generate a short, shareable URL (e.g., `/diff/3f9c2e91ab`). When someone opens your shared link, the diff is loaded from the database and displayed automatically. Features:
+- **Persistent Storage**: Diffs are saved for 7 days (configurable)
+- **Short URLs**: Easy to share and remember
+- **View Tracking**: See how many times your diff has been viewed
+- **Privacy Options**: Future support for private, token-protected diffs
+
+Perfect for:
 - Code reviews
 - Document comparisons
 - Collaborative editing
@@ -160,6 +203,47 @@ The app is optimized for large texts with:
 - Clipboard API for share link copying
 - FileReader API for file uploads
 
+## API Endpoints
+
+### Create Diff
+```http
+POST /api/diff
+Content-Type: application/json
+
+{
+  "textA": "original text",
+  "textB": "modified text",
+  "ttlDays": 7,
+  "isPrivate": false
+}
+```
+
+Response:
+```json
+{
+  "id": "uuid",
+  "shortId": "abc123def",
+  "url": "/diff/abc123def",
+  "expiresAt": "2024-01-12T00:00:00Z",
+  "isPrivate": false
+}
+```
+
+### Get Diff
+```http
+GET /api/diff/:id
+```
+
+### Get Statistics
+```http
+GET /api/stats
+```
+
+### Cleanup Expired Diffs
+```http
+POST /api/cleanup
+```
+
 ## Development Scripts
 
 | Command | Description |
@@ -169,6 +253,10 @@ The app is optimized for large texts with:
 | `pnpm preview` | Preview production build |
 | `pnpm check` | Run type checking |
 | `pnpm lint` | Run linter |
+| `pnpm db:push` | Push database schema (dev) |
+| `pnpm db:generate` | Generate migrations |
+| `pnpm db:migrate` | Run migrations |
+| `pnpm db:studio` | Open Drizzle Studio (DB GUI) |
 
 ## License
 
